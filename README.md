@@ -1,5 +1,6 @@
 # EasyUseExcel
 C# excel helper
+use ClosedXML
 
 ## ExcelWriter
 Model to Excel
