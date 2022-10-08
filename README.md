@@ -3,7 +3,53 @@ use ClosedXML<br>
 
 C# excel helper<br>
 
-
+Attribute List
+<table>
+    <thead>
+        <tr>
+            <th>
+                class name       
+            </th>
+            <th>
+                description
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                Order
+            </td>
+            <td>
+                排序用
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Display
+            </td>
+            <td>
+                自訂表頭
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Ignore
+            </td>
+            <td>
+                忽略
+            </td>
+        </tr>
+        <tr>
+            <td>
+                RowSpan
+            </td>
+            <td>
+                同HTML RowSpan
+            </td>
+        </tr>
+    </tbody>
+</table>
 ## ExcelWriter
 Model to Excel
 example:
