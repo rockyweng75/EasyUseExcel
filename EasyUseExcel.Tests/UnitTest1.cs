@@ -41,8 +41,13 @@ namespace EasyUseExcel.Tests
             }
 
             var stream = ExcelWriter.Excute<TestModel, TestModel>(testCase, testCase);
-
+            
             Assert.IsTrue(stream.Length > 0);
+
+            using (var fs = new FileStream("C:\\Temp\\ExcelWriterTest.xlxs", FileMode.OpenOrCreate)) {
+                stream.Position = 0;
+                stream.CopyTo(fs);
+            } 
 
             var result = ExcelReader.Excute<TestModel>(stream, 2, 2);
 
@@ -56,7 +61,7 @@ namespace EasyUseExcel.Tests
             return new TestModel()
             {
                 Seq = seq,
-                Name = $"User{seq}",
+                Name = $"User",
                 Age = seq + 18,
                 Phone = $"9999999{seq}",
                 Remark = "TestData"
@@ -70,6 +75,7 @@ namespace EasyUseExcel.Tests
         public int Seq { get; set; }
 
         [Order(2)]
+        [RowSpan]
         [Display("UserName")]
         public string Name { get; set; }
 

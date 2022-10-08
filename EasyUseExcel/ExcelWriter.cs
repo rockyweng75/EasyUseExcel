@@ -20,7 +20,7 @@ namespace EasyUseExcel
                     sheetName = string.Format("{0}{1}", sheetName, sheetNames.Count);
                     sheetNames.Add(sheetName);
                 }
-                else 
+                else
                 {
                     throw new Exception();
                 }
@@ -34,6 +34,13 @@ namespace EasyUseExcel
 
             var table = new DataTable(sheetName);
             var index = 0;
+            var props = typeof(T).GetProperties();
+
+            var activeProps = props.Where(o => !o.GetCustomAttributes(true).Any(i => i.GetType().Name.Equals(typeof(IgnoreAttribute).Name)))
+                .ToArray();
+            //var RowSpanProps = props.Where(o => o.GetCustomAttributes(true)
+            //        .Any(a => a.GetType().Name.Equals(typeof(RowSpanAttribute).Name)));
+
             foreach (var data in datas)
             {
                 if (typeof(T).Name == "Object")
@@ -54,13 +61,12 @@ namespace EasyUseExcel
                     {
                         objs.Add(value);
                     }
+
                     table.Rows.Add(objs.ToArray());
                 }
                 else
                 {
-                    var props = typeof(T).GetProperties();
-                    props = props.Where(o => !o.GetCustomAttributes(true).Any(i => i.GetType().Name.Equals(typeof(IgnoreAttribute).Name)))
-                                .ToArray();
+                    props = activeProps;
 
                     try
                     {
@@ -70,9 +76,8 @@ namespace EasyUseExcel
                     }
                     catch (Exception e)
                     {
-                        throw new Exception(" PropertyInfo have to a OrderAttribute");
+                        throw new Exception(" PropertyInfo need a OrderAttribute");
                     }
-
 
                     // create Column 只需一次
                     if (index++ == 0)
@@ -117,6 +122,7 @@ namespace EasyUseExcel
             return table;
         }
 
+
         private static DataTable GetTable(IList<object> datas)
         {
             var type = datas.FirstOrDefault().GetType();
@@ -156,7 +162,6 @@ namespace EasyUseExcel
                             table.Columns.Add(key, obj == null ? typeof(string) : obj.GetType());
                         }
                     }
-
 
                     table.Rows.Add(map.Values.ToArray());
                 }
@@ -207,13 +212,74 @@ namespace EasyUseExcel
             return table;
         }
 
+        private static bool existsRowSpan<T>() 
+        {
+            var props = typeof(T).GetProperties();
+            return props.Any(o => o.GetCustomAttributes(true)
+                    .Any(i => i.GetType().Name.Equals(typeof(RowSpanAttribute).Name)));
+        }
+
+        private static void doRowSpan<T>(IXLWorksheet worksheet)
+        {
+            var props = typeof(T).GetProperties();
+
+            props = props.Where(o => !o.GetCustomAttributes(true).Any(i => i.GetType().Name.Equals(typeof(IgnoreAttribute).Name)))
+                            .ToArray();
+            if (props.Any(o => o.GetCustomAttributes(true).Any(i => i.GetType().Name == typeof(OrderAttribute).Name)))
+                props = props
+                    .OrderBy(o => ((OrderAttribute)o.GetCustomAttributes(true)
+                        .Where(i => i.GetType().Name.Equals(typeof(OrderAttribute).Name)).FirstOrDefault()).Index)
+                    .ToArray();
+
+            var spanColIndexs = new List<int>();
+
+            for (var i = 0; i < props.Length; i++) 
+            {
+                var prop = props[i];
+                if (prop.GetCustomAttributes(true).Any(a => a.GetType().Name.Equals(typeof(RowSpanAttribute).Name))) {
+                    spanColIndexs.Add(i+1);
+                }
+            }
+
+            var table = worksheet.Table(0);
+            var rowIndex = 1;
+            foreach (var colIndex in spanColIndexs) 
+            {
+                IDictionary<int, object> preData = new Dictionary<int, object>();
+                IDictionary<int, int> mergeRangs = new Dictionary<int, int>();
+                var preDataIndex = 0;
+                foreach (var row in table.Rows()) 
+                {
+                    var data = row.Cell(colIndex).Value;
+
+                    if (preData.Keys.Count == 0 || preData[preDataIndex] == null || !preData[preDataIndex].Equals(data))
+                    {
+                        preData.Add(rowIndex, data);
+                        preDataIndex = rowIndex;
+                    }
+                    else                   
+                    {
+                        if (mergeRangs.ContainsKey(preDataIndex)) mergeRangs[preDataIndex] = rowIndex;
+                        else mergeRangs.Add(preDataIndex, rowIndex);
+                    }
+                    rowIndex++;
+                }
+                foreach (var keyValue in mergeRangs) 
+                {
+                    var range = table.Range(keyValue.Key, colIndex, keyValue.Value, colIndex);
+                    range.Merge();
+                }
+            }
+        }
+
 
         public static Stream Excute<T>(IList<T> datas)
         {
             MemoryStream ms = new MemoryStream();
             using (XLWorkbook workbook = new XLWorkbook())
             {
-                workbook.Worksheets.Add(GetTable(datas));
+                var ws = workbook.Worksheets.Add(GetTable(datas));
+                if (existsRowSpan<T>()) doRowSpan<T>(ws);
                 workbook.SaveAs(ms);
                 ms.Position = 0;
                 return ms;
@@ -226,8 +292,10 @@ namespace EasyUseExcel
             MemoryStream ms = new MemoryStream();
             using (XLWorkbook workbook = new XLWorkbook()) 
             {
-                workbook.Worksheets.Add(GetTable(datas));
-                workbook.Worksheets.Add(GetTable(data2s));
+                var ws = workbook.Worksheets.Add(GetTable(datas));
+                if (existsRowSpan<T>()) doRowSpan<T>(ws);
+                ws = workbook.Worksheets.Add(GetTable(data2s));
+                if (existsRowSpan<T2>()) doRowSpan<T2>(ws);
 
                 workbook.SaveAs(ms);
                 ms.Position = 0;
@@ -239,10 +307,13 @@ namespace EasyUseExcel
         {
             MemoryStream ms = new MemoryStream();
             using (XLWorkbook workbook = new XLWorkbook())
-            { 
-                workbook.Worksheets.Add(GetTable(datas));
-                workbook.Worksheets.Add(GetTable(data2s));
-                workbook.Worksheets.Add(GetTable(data3s));
+            {
+                var ws = workbook.Worksheets.Add(GetTable(datas));
+                if (existsRowSpan<T>()) doRowSpan<T>(ws);
+                ws = workbook.Worksheets.Add(GetTable(data2s));
+                if (existsRowSpan<T2>()) doRowSpan<T2>(ws);
+                ws = workbook.Worksheets.Add(GetTable(data3s));
+                if (existsRowSpan<T3>()) doRowSpan<T3>(ws);
 
                 workbook.SaveAs(ms);
                 ms.Position = 0;

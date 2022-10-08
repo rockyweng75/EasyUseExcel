@@ -1,12 +1,10 @@
 ﻿namespace EasyUseExcel.Attribute
 {
-    public class OrderAttribute : System.Attribute
+    public class RowSpanAttribute : System.Attribute
     {
-        public OrderAttribute(int index)
+        public RowSpanAttribute()
         {
-            Index = index;
         }
 
-        public int Index { get; set; }
     }
 }
